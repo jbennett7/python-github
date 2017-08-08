@@ -1,9 +1,14 @@
+#!/usr/bin/python
+
 import requests
 import json
 
 GITHUB_URL = 'https://api.github.com'
 
 class GithubRepository(object):
+"""
+    GithubRepository Class to define a repository in Github.
+"""
     def __init__(self, token, organization, name):
         self._header = {'Authorization': 'token {}'.format(token)}
         self._organization = organization
@@ -18,9 +23,11 @@ class GithubRepository(object):
         except AssertionError:
             raise Exception(
                 'Github access error status code: {}'.format(check))
-        self.create_repository(dict(name=self._name))
 
-    def does_exist(self):
+    def _label_url(label_name):
+        return '{}/{}'.format(self._labels_url, label_name)
+
+    def exists(self):
         try:
             result = requests.get(self._repo_url, headers=self._header)
             assert result.status_code == 200
@@ -28,14 +35,16 @@ class GithubRepository(object):
         except AssertionError:
             return False
 
-    def create_repository(self, configuration):
-        if not self.does_exist():
+    def create_repository(self):
+        created = False
+        if not self.exists():
             try:
                 result = requests.post(
                     self._repo_url,
-                    data=json.dumps(configuration),
+                    data=json.dumps({'name': self._name}),
                     headers=self._header)
                 assert result.status_code == 201
+                created = True
             except AssertionError:
                 try:
                     result = requests.post(
@@ -43,14 +52,21 @@ class GithubRepository(object):
                         data=json.dumps(configuration),
                         headers=self._header)
                     assert result.status_code == 201
+                    created = True
                 except AssertionError:
                     raise Exception(
                         'Cannot create repository: {} status code: {}'.format(
                             result.status_code))
+        return created
 
-    def _label_url(label_name):
-        return '{}/{}'.format(self._labels_url, label_name)
-
+    def same_configuration(self, configuration):
+        assert isinstance(configuration, dict)
+        current_configuration = self.get_configuration()
+        for key in configuration:
+            if configuration[key] != current_configuration[key]:
+                return False
+        return True
+    
     def set_configuration(self, configuration):
         assert isinstance(configuration, dict)
         try:
@@ -93,15 +109,14 @@ class GithubRepository(object):
                     result.status_code))
         return result.json()
 
-    def compare_label(self, label):
+    def same_label(self, label):
         assert isinstance(label, dict)
         try:
             result = requests.get(
                 self._label_url(label['name']),
                 headers=self._header)
             assert result.status_code == 200
-            if label['name'] == result.json()['name'] and \
-               label['color'] == result.json()['color']:
+            if label['color'] == result.json()['color']:
                 return True
             else:
                 return False
