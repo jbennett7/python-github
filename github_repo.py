@@ -158,7 +158,7 @@ class GithubRepository(object):
     def delete_label(self, label_name):
         try:
             result = requests.delete(
-                self._label_url(label['name']),
+                self._label_url(label_name),
                 headers=self._header)
             assert result.status_code == 204
         except AssertionError:
